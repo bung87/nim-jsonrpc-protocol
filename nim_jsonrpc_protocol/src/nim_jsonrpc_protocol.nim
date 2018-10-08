@@ -5,6 +5,7 @@ import typetraits
 import json
 
 const CRLF = "\r\n"
+const JSONRPC_VERSION = "2.0"
 
 type 
   GRequest*[I:int|string,P]  = object
@@ -35,13 +36,17 @@ type
   Error*[T]  = concept o
     o.code  is SomeNumber
     o.message is string
-    o.data is T # omitted
+    o.data is T or void # omitted
 
   ErrorResponse* = concept o of Response
     o.error is Error
     o.id is string or o.id is SomeNumber
     o.jsonrpc is string
     
+  GErrorResponse[I:int|string,T] = object
+    error:T
+    id:I
+    jsonrpc:string
 
   ServerError* = range[32000..32099]
 
@@ -70,26 +75,44 @@ errdef(Server Error End,-32000)
 errdef(Server Not Initialized,-32002)
 errdef(Unknown Error Code,-32001)
 
-proc initGRequest*[P:int|string,T](id:P,`method`:string,params:T,jsonrpc="2.0"):GRequest[P,T] =
+proc initGErrorResponse*[P:int|string,T](id:P,error:T,jsonrpc=JSONRPC_VERSION):GErrorResponse[P,T] =
+  result.id = id
+  result.jsonrpc = jsonrpc
+  result.error = error
+
+proc jErrorResponse*[T,P:int|string](id:P,error:openarray[T],jsonrpc=JSONRPC_VERSION):JsonNode{.noInit.} =
+  result = newJObject()
+  result["id"] = %id
+  result["jsonrpc"] = %jsonrpc
+  result["error"] = %error
+
+template jErrorResponse*[P:int|string](id:P,jsonrpc=JSONRPC_VERSION,error: untyped): untyped  =
+  let result = newJObject()
+  result["id"] = %id
+  result["jsonrpc"] = %jsonrpc
+  result["error"] = %*error
+  result
+  
+proc initGRequest*[P:int|string,T](id:P,`method`:string,params:T,jsonrpc=JSONRPC_VERSION):GRequest[P,T] =
   result.id = id
   result.method = `method`
   result.jsonrpc = jsonrpc
   result.params = params
 
-proc jRequest*[T,P:int|string](id:P,`method`:string,params:openarray[T],jsonrpc="2.0"):JsonNode{.noInit.} =
+proc jRequest*[T,P:int|string](id:P,`method`:string,params:openarray[T],jsonrpc=JSONRPC_VERSION):JsonNode{.noInit.} =
   result = newJObject()
   result["id"] = %id
   result["method"] = %`method`
   result["jsonrpc"] = %jsonrpc
   result["params"] = %params
 
-proc jRequest*[P:int|string](id:P,`method`:string,jsonrpc="2.0"):JsonNode{.noInit.} =
+proc jRequest*[P:int|string](id:P,`method`:string,jsonrpc=JSONRPC_VERSION):JsonNode{.noInit.} =
   result = newJObject()
   result["id"] = %id
   result["method"] = %`method`
   result["jsonrpc"] = %jsonrpc
 
-template gRequest*[P:int|string](id:P,`method`:string,jsonrpc="2.0",params: untyped): untyped  =
+template gRequest*[P:int|string](id:P,`method`:string,jsonrpc=JSONRPC_VERSION,params: untyped): untyped  =
   let result = newJObject()
   result["id"] = %id
   result["method"] = %`method`
@@ -97,7 +120,7 @@ template gRequest*[P:int|string](id:P,`method`:string,jsonrpc="2.0",params: unty
   result["params"] = %*params
   result
 
-template gRequest*[P:int|string](id:P,`method`:string,jsonrpc="2.0"): untyped  =
+template gRequest*[P:int|string](id:P,`method`:string,jsonrpc=JSONRPC_VERSION): untyped  =
   let result = newJObject()
   result["id"] = %id
   result["method"] = %`method`
