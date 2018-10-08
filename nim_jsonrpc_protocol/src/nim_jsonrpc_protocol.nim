@@ -4,6 +4,8 @@ import macros
 import typetraits
 import json
 
+const CRLF = "\r\n"
+
 type 
   GRequest*[I:int|string,P]  = object
     jsonrpc:string
@@ -11,14 +13,16 @@ type
     id : I
     params:P # omitted
 
-  # BatchRequest = seq[Request]
+  
   Request*[T]  = concept o ,type M
     o.jsonrpc is string
     o.method is string
     type TransposedType = stripGenericParams(M)[T]
     o is TransposedType
     o.id is string or o.id is SomeNumber
-    o.params is T # omitted
+    o.params is T or void # omitted
+  
+  BatchRequest = seq[ JsonNode]
 
   Response* = concept o
     o.jsonrpc is string
@@ -35,6 +39,9 @@ type
 
   ErrorResponse* = concept o of Response
     o.error is Error
+    o.id is string or o.id is SomeNumber
+    o.jsonrpc is string
+    
 
   ServerError* = range[32000..32099]
 
@@ -90,6 +97,16 @@ template gRequest*[P:int|string](id:P,`method`:string,jsonrpc="2.0",params: unty
   result["params"] = %*params
   result
 
+template gRequest*[P:int|string](id:P,`method`:string,jsonrpc="2.0"): untyped  =
+  let result = newJObject()
+  result["id"] = %id
+  result["method"] = %`method`
+  result["jsonrpc"] = %jsonrpc
+  result
+
+proc `$`*(self:var BatchRequest):string =
+  self.join(CRLF)
+
 when isMainModule:
   assert parseError == -32700
   type RP = object
@@ -107,8 +124,20 @@ when isMainModule:
   let d = jRequest(id = 1,`method`="aaa",params = ["a","b"])
   const dc = """{"id":1,"method":"aaa","jsonrpc":"2.0","params":["a","b"]}"""
   assert $d == dc
-  let e = jRequest(id = 1,`method`="aaa")
-
   
   echo gRequest(id = 1,`method`="aaa",params ={"name": "Isaac", "books": ["Robot Dreams",1]})
+
+  let g = gRequest(id = 1,`method`="aaa")
+
+  let j = jRequest(id = 1,`method`="aaa")
+
+  var b:BatchRequest
+
+  b.add g
+  b.add j
+
+  let bc = @[g,j]
+
+  echo b
+
 
