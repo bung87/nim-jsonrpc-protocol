@@ -23,7 +23,7 @@ type
     o.id is string or o.id is SomeNumber
     o.params is T or void # omitted
   
-  BatchRequest = seq[ JsonNode]
+  BatchRequest* = seq[ JsonNode]
 
   Response* = concept o
     o.jsonrpc is string
@@ -99,32 +99,18 @@ proc initGRequest*[P:int|string,T](id:P,`method`:string,params:T,jsonrpc=JSONRPC
   result.jsonrpc = jsonrpc
   result.params = params
 
-proc jRequest*[T,P:int|string](id:P,`method`:string,params:openarray[T],jsonrpc=JSONRPC_VERSION):JsonNode{.noInit.} =
-  result = newJObject()
-  result["id"] = %id
-  result["method"] = %`method`
-  result["jsonrpc"] = %jsonrpc
-  result["params"] = %params
-
 proc jRequest*[P:int|string](id:P,`method`:string,jsonrpc=JSONRPC_VERSION):JsonNode{.noInit.} =
   result = newJObject()
   result["id"] = %id
   result["method"] = %`method`
   result["jsonrpc"] = %jsonrpc
 
-template gRequest*[P:int|string](id:P,`method`:string,jsonrpc=JSONRPC_VERSION,params: untyped): untyped  =
+template jRequest*[P:int|string](id:P,`method`:string,params: untyped,jsonrpc=JSONRPC_VERSION): untyped  =
   let result = newJObject()
   result["id"] = %id
   result["method"] = %`method`
   result["jsonrpc"] = %jsonrpc
   result["params"] = %*params
-  result
-
-template gRequest*[P:int|string](id:P,`method`:string,jsonrpc=JSONRPC_VERSION): untyped  =
-  let result = newJObject()
-  result["id"] = %id
-  result["method"] = %`method`
-  result["jsonrpc"] = %jsonrpc
   result
 
 proc `$`*(self:var BatchRequest):string =
@@ -148,13 +134,13 @@ when isMainModule:
   const dc = """{"id":1,"method":"aaa","jsonrpc":"2.0","params":["a","b"]}"""
   assert $d == dc
   
-  echo gRequest(id = 1,`method`="aaa",params ={"name": "Isaac", "books": ["Robot Dreams",1]})
+  echo jRequest(id = 1,`method`="aaa",params ={"name": "Isaac", "books": ["Robot Dreams",1]})
 
-  let g = gRequest(id = 1,`method`="aaa")
+  let g = jRequest(id = 1,`method`="aaa")
 
   let j = jRequest(id = 1,`method`="aaa")
 
-  var b:BatchRequest
+  var b:BatchRequest = @[]
 
   b.add g
   b.add j
